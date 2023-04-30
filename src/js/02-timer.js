@@ -5,10 +5,9 @@ import Notiflix from 'notiflix';
 const startBtn = document.querySelector('button[data-start]');
 startBtn.disabled = true;
 
-const filedValueEls = document.querySelectorAll('div.field>.value');
+const allTimerFields = document.querySelectorAll('div.field>.value');
 
 let intervalTimeId = null;
-
 const calendar = flatpickr('input#datetime-picker', {
   enableTime: true,
   time_24hr: true,
@@ -17,13 +16,17 @@ const calendar = flatpickr('input#datetime-picker', {
   minuteIncrement: 1,
   onClose(selectedDates) {
     startBtn.disabled = false;
-    if (selectedDates[0] < this.config.defaultDate) {
+    const dateNow = (this.config.defaultDate = new Date());
+    const past = selectedDates[0] <= dateNow;
+    if (past) {
       Notiflix.Notify.failure('Please choose a date in the future');
       startBtn.disabled = true;
     }
   },
 });
-
+let {
+  config: { defaultDate: calendarPresentDate },
+} = calendar;
 function convertMs(ms) {
   // Number of milliseconds per unit of time
   const second = 1000;
@@ -50,13 +53,13 @@ function addLeadingZero(value) {
   return value;
 }
 
-function timerValidation(timeArray) {
+function timerEndValidation(timeArray) {
   const finished = timeArray.every(el => el === 0);
   if (finished) {
     Notiflix.Report.success('Success', "Now it's time to shine");
     clearInterval(intervalTimeId);
+    calendar.element.disabled = false;
   }
-  return timeArray.every(el => el === 0);
 }
 
 function renderArray(arrayOfElements, arrayToRender) {
@@ -64,28 +67,30 @@ function renderArray(arrayOfElements, arrayToRender) {
     const stringifyArray = arrayToRender.map(unit => unit.toString());
     el.textContent = addLeadingZero(stringifyArray[idx]);
   });
-  timerValidation(arrayToRender);
+  timerEndValidation(arrayToRender);
 }
 
-function timeRender() {
+function getTimeValuesFormMs(timeInMs) {
+  let timeObject = convertMs(timeInMs);
+
+  return Object.values(timeObject);
+}
+
+function handleTimeRender() {
+  calendarPresentDate = new Date();
+
+  startBtn.disabled = true;
+  calendar.element.disabled = true;
+
   let TimeUntilNowInMs =
-    calendar.selectedDates[0].getTime() - calendar.now.getTime();
+    calendar.selectedDates[0].getTime() - calendarPresentDate.getTime();
 
-  let TimeUntilNowObject = convertMs(TimeUntilNowInMs);
-
-  let TimeUntilNowValues = Object.values(TimeUntilNowObject);
-
-  renderArray(filedValueEls, TimeUntilNowValues);
+  renderArray(allTimerFields, getTimeValuesFormMs(TimeUntilNowInMs));
 
   intervalTimeId = setInterval(() => {
+    renderArray(allTimerFields, getTimeValuesFormMs(TimeUntilNowInMs));
     TimeUntilNowInMs -= 1000;
-
-    TimeUntilNowObject = convertMs(TimeUntilNowInMs);
-
-    TimeUntilNowValues = Object.values(TimeUntilNowObject);
-
-    renderArray(filedValueEls, TimeUntilNowValues);
   }, 1000);
 }
 
-startBtn.addEventListener('click', timeRender);
+startBtn.addEventListener('click', handleTimeRender);
